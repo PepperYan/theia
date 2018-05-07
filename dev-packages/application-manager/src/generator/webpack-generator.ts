@@ -91,7 +91,7 @@ module.exports = {
                 test: /\\.js$/,
                 enforce: 'pre',
                 loader: 'source-map-loader',
-                exclude: /jsonc-parser/
+                exclude: /jsonc-parser|fast-plist/
             },
             {
                 test: /\\.woff(2)?(\\?v=[0-9]\\.[0-9]\\.[0-9])?$/,
@@ -100,6 +100,11 @@ module.exports = {
             {
                 test: /node_modules[\\\\|\/](vscode-languageserver-types|vscode-uri|jsonc-parser)/,
                 use: { loader: 'umd-compat-loader' }
+            },
+            {
+                test: /\.wasm$/,
+                loader: "file-loader",
+                type: "javascript/auto",
             }
         ]
     },

@@ -34,7 +34,8 @@
     "@theia/typescript": "^0.3.10",
     "@theia/userstorage": "^0.3.10",
     "@theia/variable-resolver": "^0.3.10",
-    "@theia/workspace": "^0.3.10"
+    "@theia/workspace": "^0.3.10",
+    "@theia/monaco-textmate": "^0.3.10"
   },
   "scripts": {
     "prepare": "yarn run clean && yarn build",
