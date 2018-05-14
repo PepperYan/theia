@@ -34,7 +34,9 @@ export class ExtensionWidget extends VirtualWidget {
 
         this.update();
         this.fetchExtensions();
-        extensionManager.onDidChange(() => this.update());
+        this.toDispose.push(this.toDisposeOnFetch);
+        this.toDispose.push(this.toDisposeOnSearch);
+        this.toDispose.push(extensionManager.onDidChange(() => this.update()));
     }
 
     protected onActivateRequest(msg: Message) {
@@ -52,6 +54,12 @@ export class ExtensionWidget extends VirtualWidget {
         const searchField = this.findSearchField();
         const query = searchField ? searchField.value.trim() : '';
         this.extensionManager.list({ query }).then(extensions => {
+            this.toDisposeOnFetch.dispose();
+            this.toDisposeOnFetch.pushAll(extensions);
+            if (this.isDisposed) {
+                this.toDisposeOnFetch.dispose();
+                return;
+            }
             this.extensions = query ? extensions : extensions.filter(e => !e.dependent);
             this.ready = true;
             this.update();
