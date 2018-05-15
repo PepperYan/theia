@@ -5,6 +5,8 @@
  * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
  */
 
+// tslint:disable:no-any
+
 import { Disposable } from "./disposable";
 
 /**
@@ -20,17 +22,30 @@ export interface Event<T> {
      * @return a disposable to remove the listener again.
      */
     (listener: (e: T) => any, thisArgs?: any, disposables?: Disposable[]): Disposable;
+    /**
+     * An emitter will print a warning if more listeners are added for this event.
+     * The event.maxListeners allows the limit to be modified for this specific event.
+     * The value can be set to 0 to indicate an unlimited number of listener.
+     */
+    maxListeners: number
 }
 
 export namespace Event {
     const _disposable = { dispose() { } };
-    export const None: Event<any> = function () { return _disposable; };
+    export const None: Event<any> = Object.assign(function () { return _disposable; }, {
+        get maxListeners(): number { return 0; },
+        set maxListeners(maxListeners: number) { }
+    });
 }
 
 class CallbackList {
 
     private _callbacks: Function[] | undefined;
     private _contexts: any[] | undefined;
+
+    get length(): number {
+        return this._callbacks && this._callbacks.length || 0;
+    }
 
     public add(callback: Function, context: any = null, bucket?: Disposable[]): void {
         if (!this._callbacks) {
@@ -109,7 +124,8 @@ export class Emitter<T> {
 
     private _event: Event<T>;
     private _callbacks: CallbackList | undefined;
-    private disposed = false;
+    private _disposed = false;
+    private _maxListeners = 30;
 
     constructor(private _options?: EmitterOptions) {
     }
@@ -120,7 +136,8 @@ export class Emitter<T> {
      */
     get event(): Event<T> {
         if (!this._event) {
-            this._event = (listener: (e: T) => any, thisArgs?: any, disposables?: Disposable[]) => {
+            const self = this;
+            this._event = Object.assign((listener: (e: T) => any, thisArgs?: any, disposables?: Disposable[]) => {
                 if (!this._callbacks) {
                     this._callbacks = new CallbackList();
                 }
@@ -128,12 +145,13 @@ export class Emitter<T> {
                     this._options.onFirstListenerAdd(this);
                 }
                 this._callbacks.add(listener, thisArgs);
+                this.checkMaxListeners();
 
                 let result: Disposable;
                 result = {
                     dispose: () => {
                         result.dispose = Emitter._noop;
-                        if (!this.disposed) {
+                        if (!this._disposed) {
                             this._callbacks!.remove(listener, thisArgs);
                             result.dispose = Emitter._noop;
                             if (this._options && this._options.onLastListenerRemove && this._callbacks!.isEmpty()) {
@@ -147,9 +165,28 @@ export class Emitter<T> {
                 }
 
                 return result;
-            };
+            }, {
+                    get maxListeners() {
+                        return self._maxListeners;
+                    },
+                    set maxListeners(maxListeners: number) {
+                        self._maxListeners = maxListeners;
+                        self.checkMaxListeners();
+                    }
+                }
+            );
         }
         return this._event;
+    }
+
+    protected checkMaxListeners(): void {
+        if (this._maxListeners === 0 || !this._callbacks) {
+            return;
+        }
+        const count = this._callbacks.length;
+        if (count > this._maxListeners) {
+            console.warn(new Error(`Possible Emitter memory leak detected. ${this._maxListeners} exit listeners added. Use event.maxListeners to increase limit`));
+        }
     }
 
     /**
@@ -167,6 +204,6 @@ export class Emitter<T> {
             this._callbacks.dispose();
             this._callbacks = undefined;
         }
-        this.disposed = true;
+        this._disposed = true;
     }
 }
